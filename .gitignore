@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.dist/
+dist/
+build/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env & config overrides
+.env
+.env.*
+!.env.example
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Coverage & reports
+coverage/
+.nyc_output/
+
+# Hono/Vercel artifacts
+.vercel/
