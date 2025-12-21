@@ -125,17 +125,32 @@ curl http://localhost:3000/api/courses/1
 
 ### Option 1: Vercel CLI (Recommended)
 
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Login
-vercel login
-
-# Deploy
-cd backend
-vercel
-```
+1. **Install the CLI (one-time)**
+    ```bash
+    npm i -g vercel
+    ```
+2. **Authenticate with your Vercel account**
+    ```bash
+    vercel login
+    ```
+    Follow the prompt to complete login in your browser.
+3. **Run the initial deploy wizard**
+    ```bash
+    cd backend
+    vercel
+    ```
+    - When prompted, answer:
+        - **Set up and deploy?** → `y`
+        - **Link to existing project?** → `n` (if first time)
+        - **Project name** → e.g. `codewitheasy-backend`
+        - **Directory** → `./`
+        - **Environment variables** → add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_ORIGINS`
+    - The CLI will create the project and perform the first deployment (Preview).
+4. **Promote to Production**
+    ```bash
+    vercel --prod
+    ```
+    This deploys the latest preview build to your production domain.
 
 ### Option 2: GitHub Integration
 
