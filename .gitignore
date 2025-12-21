@@ -34,3 +34,4 @@ coverage/
 
 # Hono/Vercel artifacts
 .vercel/
+.vercel
