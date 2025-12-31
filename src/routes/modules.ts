@@ -11,6 +11,9 @@ modules.get('/', async (c) => {
     const courseId = c.req.query('courseId') || '';
     const where: any = {};
     
+    // Debug logging
+    console.log('Modules API - Received params:', { search, courseId });
+    
     if (search) {
       where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
@@ -21,6 +24,8 @@ modules.get('/', async (c) => {
     if (courseId) {
       where.courseId = courseId;
     }
+    
+    console.log('Modules API - Final where clause:', where);
     
     const [data, total] = await Promise.all([
       prisma.module.findMany({
