@@ -8,16 +8,25 @@ courses.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
+    const level = c.req.query('level') || '';
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where = search ? {
-      OR: [
+    const where: any = {};
+    
+    // Add search condition if provided
+    if (search) {
+      where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
         { description: { contains: search, mode: 'insensitive' as const } },
         { slug: { contains: search, mode: 'insensitive' as const } }
-      ]
-    } : {};
+      ];
+    }
+    
+    // Add level filter if provided
+    if (level) {
+      where.level = level.toUpperCase(); // Convert to uppercase for enum
+    }
     
     // Build orderBy object
     const orderBy: any = {};
