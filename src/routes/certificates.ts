@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 const certificates = new Hono();
 
@@ -8,14 +8,15 @@ certificates.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     
-    const { data, error, count } = await supabase
-      .from('Certificate')
-      .select('*', { count: 'exact' })
-      .range(offset, offset + limit - 1);
+    const [data, total] = await Promise.all([
+      prisma.certificate.findMany({
+        skip: offset,
+        take: limit
+      }),
+      prisma.certificate.count()
+    ]);
     
-    if (error) throw error;
-    
-    return c.json({ data, total: count });
+    return c.json({ data, total });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -25,13 +26,13 @@ certificates.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { data, error } = await supabase
-      .from('Certificate')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const data = await prisma.certificate.findUnique({
+      where: { id }
+    });
     
-    if (error) throw error;
+    if (!data) {
+      return c.json({ error: 'Certificate not found' }, 404);
+    }
     
     return c.json({ data });
   } catch (error: any) {
@@ -43,13 +44,9 @@ certificates.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Certificate')
-      .insert(body)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.certificate.create({
+      data: body
+    });
     
     return c.json({ data }, 201);
   } catch (error: any) {
@@ -62,14 +59,10 @@ certificates.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Certificate')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.certificate.update({
+      where: { id },
+      data: body
+    });
     
     return c.json({ data });
   } catch (error: any) {
@@ -81,12 +74,9 @@ certificates.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { error } = await supabase
-      .from('Certificate')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await prisma.certificate.delete({
+      where: { id }
+    });
     
     return c.json({ success: true });
   } catch (error: any) {

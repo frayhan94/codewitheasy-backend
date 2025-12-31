@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 const modules = new Hono();
 
@@ -9,19 +9,23 @@ modules.get('/', async (c) => {
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
     
-    let query = supabase
-      .from('Module')
-      .select('*', { count: 'exact' });
+    const where = search ? {
+      OR: [
+        { title: { contains: search, mode: 'insensitive' as const } },
+        { description: { contains: search, mode: 'insensitive' as const } }
+      ]
+    } : {};
     
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
-    }
+    const [data, total] = await Promise.all([
+      prisma.module.findMany({
+        where,
+        skip: offset,
+        take: limit
+      }),
+      prisma.module.count({ where })
+    ]);
     
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
-    
-    if (error) throw error;
-    
-    return c.json({ data, total: count });
+    return c.json({ data, total });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -31,13 +35,13 @@ modules.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { data, error } = await supabase
-      .from('Module')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const data = await prisma.module.findUnique({
+      where: { id }
+    });
     
-    if (error) throw error;
+    if (!data) {
+      return c.json({ error: 'Module not found' }, 404);
+    }
     
     return c.json({ data });
   } catch (error: any) {
@@ -49,13 +53,9 @@ modules.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Module')
-      .insert(body)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.module.create({
+      data: body
+    });
     
     return c.json({ data }, 201);
   } catch (error: any) {
@@ -68,14 +68,10 @@ modules.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Module')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.module.update({
+      where: { id },
+      data: body
+    });
     
     return c.json({ data });
   } catch (error: any) {
@@ -87,12 +83,9 @@ modules.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { error } = await supabase
-      .from('Module')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await prisma.module.delete({
+      where: { id }
+    });
     
     return c.json({ success: true });
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 const courses = new Hono();
 
@@ -9,19 +9,24 @@ courses.get('/', async (c) => {
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
     
-    let query = supabase
-      .from('Course')
-      .select('*', { count: 'exact' });
+    const where = search ? {
+      OR: [
+        { title: { contains: search, mode: 'insensitive' as const } },
+        { description: { contains: search, mode: 'insensitive' as const } },
+        { slug: { contains: search, mode: 'insensitive' as const } }
+      ]
+    } : {};
     
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,slug.ilike.%${search}%`);
-    }
+    const [data, total] = await Promise.all([
+      prisma.course.findMany({
+        where,
+        skip: offset,
+        take: limit
+      }),
+      prisma.course.count({ where })
+    ]);
     
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
-    
-    if (error) throw error;
-    
-    return c.json({ data, total: count });
+    return c.json({ data, total });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -31,13 +36,13 @@ courses.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { data, error } = await supabase
-      .from('Course')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const data = await prisma.course.findUnique({
+      where: { id }
+    });
     
-    if (error) throw error;
+    if (!data) {
+      return c.json({ error: 'Course not found' }, 404);
+    }
     
     return c.json({ data });
   } catch (error: any) {
@@ -49,13 +54,9 @@ courses.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Course')
-      .insert(body)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.course.create({
+      data: body
+    });
     
     return c.json({ data }, 201);
   } catch (error: any) {
@@ -68,14 +69,10 @@ courses.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('Course')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.course.update({
+      where: { id },
+      data: body
+    });
     
     return c.json({ data });
   } catch (error: any) {
@@ -87,12 +84,9 @@ courses.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { error } = await supabase
-      .from('Course')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await prisma.course.delete({
+      where: { id }
+    });
     
     return c.json({ success: true });
   } catch (error: any) {

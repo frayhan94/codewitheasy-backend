@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 const users = new Hono();
 
@@ -9,19 +9,25 @@ users.get('/', async (c) => {
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
     
-    let query = supabase
-      .from('User')
-      .select('*', { count: 'exact' });
+    const where = search ? {
+      OR: [
+        { email: { contains: search, mode: 'insensitive' as const } },
+        { firstName: { contains: search, mode: 'insensitive' as const } },
+        { lastName: { contains: search, mode: 'insensitive' as const } },
+        { clerkId: { contains: search, mode: 'insensitive' as const } }
+      ]
+    } : {};
     
-    if (search) {
-      query = query.or(`email.ilike.%${search}%,firstName.ilike.%${search}%,lastName.ilike.%${search}%,clerkId.ilike.%${search}%`);
-    }
+    const [data, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip: offset,
+        take: limit
+      }),
+      prisma.user.count({ where })
+    ]);
     
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
-    
-    if (error) throw error;
-    
-    return c.json({ data, total: count });
+    return c.json({ data, total });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -31,13 +37,13 @@ users.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { data, error } = await supabase
-      .from('User')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const data = await prisma.user.findUnique({
+      where: { id }
+    });
     
-    if (error) throw error;
+    if (!data) {
+      return c.json({ error: 'User not found' }, 404);
+    }
     
     return c.json({ data });
   } catch (error: any) {
@@ -49,13 +55,9 @@ users.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('User')
-      .insert(body)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.user.create({
+      data: body
+    });
     
     return c.json({ data }, 201);
   } catch (error: any) {
@@ -68,14 +70,10 @@ users.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('User')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.user.update({
+      where: { id },
+      data: body
+    });
     
     return c.json({ data });
   } catch (error: any) {
@@ -87,12 +85,9 @@ users.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { error } = await supabase
-      .from('User')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await prisma.user.delete({
+      where: { id }
+    });
     
     return c.json({ success: true });
   } catch (error: any) {

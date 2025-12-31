@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { supabase } from '../lib/supabase.js';
+import { prisma } from '../lib/prisma.js';
 
 const lessonProgress = new Hono();
 
@@ -8,14 +8,15 @@ lessonProgress.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     
-    const { data, error, count } = await supabase
-      .from('LessonProgress')
-      .select('*', { count: 'exact' })
-      .range(offset, offset + limit - 1);
+    const [data, total] = await Promise.all([
+      prisma.lessonProgress.findMany({
+        skip: offset,
+        take: limit
+      }),
+      prisma.lessonProgress.count()
+    ]);
     
-    if (error) throw error;
-    
-    return c.json({ data, total: count });
+    return c.json({ data, total });
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -25,13 +26,13 @@ lessonProgress.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { data, error } = await supabase
-      .from('LessonProgress')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const data = await prisma.lessonProgress.findUnique({
+      where: { id }
+    });
     
-    if (error) throw error;
+    if (!data) {
+      return c.json({ error: 'Lesson progress not found' }, 404);
+    }
     
     return c.json({ data });
   } catch (error: any) {
@@ -43,13 +44,9 @@ lessonProgress.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('LessonProgress')
-      .insert(body)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.lessonProgress.create({
+      data: body
+    });
     
     return c.json({ data }, 201);
   } catch (error: any) {
@@ -62,14 +59,10 @@ lessonProgress.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const { data, error } = await supabase
-      .from('LessonProgress')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
+    const data = await prisma.lessonProgress.update({
+      where: { id },
+      data: body
+    });
     
     return c.json({ data });
   } catch (error: any) {
@@ -81,12 +74,9 @@ lessonProgress.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const { error } = await supabase
-      .from('LessonProgress')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    await prisma.lessonProgress.delete({
+      where: { id }
+    });
     
     return c.json({ success: true });
   } catch (error: any) {

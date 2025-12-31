@@ -1,0 +1,328 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  clerkId       String    @unique
+  email         String    @unique
+  firstName     String?
+  lastName      String?
+  imageUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Message limit tracking
+  dailyMessageCount   Int      @default(0)
+  monthlyMessageCount Int      @default(0)
+  lastMessageDate     DateTime?
+  lastMonthReset      DateTime?
+  subscriptionTier    String   @default("FREE") // "FREE", "PRO", "UNLIMITED"
+  
+  // Relations
+  enrollments   Enrollment[]
+  progress      LessonProgress[]
+  certificates  Certificate[]
+  subscription  Subscription?
+  conversations Conversation[]
+  snippets      Snippet[]
+  apiUsage      APIUsage[]
+  aiFeedback    AIFeedback[]
+  lessonFeedback LessonFeedback[]
+}
+
+model Course {
+  id            String    @id @default(cuid())
+  slug          String    @unique // "prompt-engineering"
+  title         String
+  description   String    @db.Text
+  thumbnail     String?
+  price         Decimal   @default(0)
+  isPremium     Boolean   @default(false)
+  isPublished   Boolean   @default(false)
+  isComingSoon  Boolean   @default(false)
+  isFreeDemo    Boolean   @default(false)
+  isShowNavbar  Boolean   @default(false)
+  order         Int       @default(0)
+  icon          String?   // Icon identifier (e.g., "lightning", "ai", "rocket", "search")
+  benefits      Json?     // Array of benefit strings for learning path cards
+  level         CourseLevel @default(BEGINNER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  modules       Module[]
+  enrollments   Enrollment[]
+  
+  @@index([slug])
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+model Module {
+  id            String    @id @default(cuid())
+  courseId      String
+  slug          String    // "fundamentals", "advanced", etc.
+  title         String
+  description   String    @db.Text
+  order         Int
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons       Lesson[]
+  
+  @@index([courseId])
+  @@index([slug])
+}
+
+model Lesson {
+  id            String    @id @default(cuid())
+  moduleId      String
+  slug          String    // "clear-intent", "context-provision", etc.
+  title         String
+  description   String    @db.Text
+  content       Json      // Rich content structure
+  duration      Int       // in minutes
+  order         Int
+  isPremium     Boolean   @default(false)
+  videoUrl      String?
+  resources     Json?     // Additional resources
+  language      String?   // Programming language for code examples: "html", "css", "javascript", "react", "typescript"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  module        Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress      LessonProgress[]
+  feedback      LessonFeedback[]
+  
+  @@index([moduleId])
+  @@index([slug])
+}
+
+model Enrollment {
+  id            String    @id @default(cuid())
+  userId        String
+  courseId      String
+  enrolledAt    DateTime  @default(now())
+  completedAt   DateTime?
+  progress      Int       @default(0) // 0-100
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model LessonProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  lessonId      String
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  timeSpent     Int       @default(0) // in seconds
+  lastAccessedAt DateTime @default(now())
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson        Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+}
+
+model Subscription {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  plan          String    // "free", "pro", "enterprise"
+  status        String    // "active", "canceled", "past_due"
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([stripeCustomerId])
+}
+
+model Certificate {
+  id            String    @id @default(cuid())
+  userId        String
+  courseId      String
+  certificateNumber String @unique
+  issuedAt      DateTime  @default(now())
+  pdfUrl        String?
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([certificateNumber])
+}
+
+model BlogPost {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  title         String
+  excerpt       String    @db.Text
+  content       String    @db.Text
+  coverImage    String?
+  author        String
+  authorImage   String?
+  category      String
+  tags          String[]
+  readTime      Int       // in minutes
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([slug])
+  @@index([category])
+  @@index([publishedAt])
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String?   // Auto-generated from first message
+  context       Json?     // Current lesson, course, code snippet, etc.
+  isShared      Boolean   @default(false)
+  shareToken    String?   @unique
+  sharedAt      DateTime?
+  viewCount     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([shareToken])
+}
+
+model Message {
+  id              String    @id @default(cuid())
+  conversationId  String
+  role            String    // "user" | "assistant" | "system"
+  content         String    @db.Text
+  metadata        Json?     // Token count, model used, etc.
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  code      String   @db.Text
+  language  String
+  isShared  Boolean  @default(false)
+  shareToken String? @unique
+  sharedAt  DateTime?
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([shareToken])
+}
+
+model APIUsage {
+  id              String   @id @default(cuid())
+  userId          String
+  endpoint        String   // e.g., "ai-feedback", "generate-example", "chat"
+  model           String   // e.g., "gpt-4", "gpt-3.5-turbo"
+  promptTokens    Int
+  completionTokens Int
+  totalTokens     Int
+  cost            Decimal  @db.Decimal(10, 6) // Estimated cost in USD
+  metadata        Json?    // Additional context (lesson, conversation, etc.)
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([createdAt])
+}
+
+model AIFeedback {
+  id          String   @id @default(cuid())
+  userId      String
+  code        String   @db.Text
+  language    String
+  feedback    Json     // FeedbackResult structure
+  lessonContext String? @db.Text
+  isShared    Boolean  @default(false)
+  shareToken  String?  @unique
+  sharedAt    DateTime?
+  viewCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([shareToken])
+}
+
+model LessonFeedback {
+  id          String   @id @default(cuid())
+  userId      String
+  lessonId    String
+  rating      Int      // 1-5 stars
+  comment     String?  @db.Text
+  isHelpful   Boolean? // Was this lesson helpful?
+  difficulty  String?  // "too_easy", "just_right", "too_hard"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId]) // One feedback per user per lesson
+  @@index([userId])
+  @@index([lessonId])
+  @@index([rating])
+  @@index([createdAt])
+}
