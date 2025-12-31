@@ -9,10 +9,12 @@ modules.get('/', async (c) => {
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
     const courseId = c.req.query('courseId') || '';
+    const sortBy = c.req.query('sortBy') || 'id';
+    const sortOrder = c.req.query('sortOrder') || 'asc';
     const where: any = {};
     
     // Debug logging
-    console.log('Modules API - Received params:', { search, courseId });
+    console.log('Modules API - Received params:', { search, courseId, sortBy, sortOrder });
     
     if (search) {
       where.OR = [
@@ -27,6 +29,16 @@ modules.get('/', async (c) => {
     
     console.log('Modules API - Final where clause:', where);
     
+    // Build orderBy object
+    const orderBy: any = {};
+    if (sortBy === 'course.title') {
+      orderBy.course = { title: sortOrder };
+    } else {
+      orderBy[sortBy] = sortOrder;
+    }
+    
+    console.log('Modules API - Final orderBy:', orderBy);
+    
     const [data, total] = await Promise.all([
       prisma.module.findMany({
         where,
@@ -34,7 +46,8 @@ modules.get('/', async (c) => {
         take: limit,
         include: {
           course: true
-        }
+        },
+        orderBy
       }),
       prisma.module.count({ where })
     ]);
