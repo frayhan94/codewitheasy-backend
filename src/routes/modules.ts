@@ -8,19 +8,28 @@ modules.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
+    const courseId = c.req.query('courseId') || '';
+    const where: any = {};
     
-    const where = search ? {
-      OR: [
+    if (search) {
+      where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
         { description: { contains: search, mode: 'insensitive' as const } }
-      ]
-    } : {};
+      ];
+    }
+    
+    if (courseId) {
+      where.courseId = courseId;
+    }
     
     const [data, total] = await Promise.all([
       prisma.module.findMany({
         where,
         skip: offset,
-        take: limit
+        take: limit,
+        include: {
+          course: true
+        }
       }),
       prisma.module.count({ where })
     ]);
