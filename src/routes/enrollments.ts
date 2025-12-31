@@ -20,7 +20,11 @@ enrollments.get('/', async (c) => {
       prisma.enrollment.findMany({
         where,
         skip: offset,
-        take: limit
+        take: limit,
+        include: {
+          user: true,
+          course: true
+        }
       }),
       prisma.enrollment.count({ where })
     ]);
@@ -36,7 +40,11 @@ enrollments.get('/:id', async (c) => {
     const id = c.req.param('id');
     
     const data = await prisma.enrollment.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        user: true,
+        course: true
+      }
     });
     
     if (!data) {
@@ -54,7 +62,11 @@ enrollments.post('/', async (c) => {
     const body = await c.req.json();
     
     const data = await prisma.enrollment.create({
-      data: body
+      data: body,
+      include: {
+        user: true,
+        course: true
+      }
     });
     
     return c.json({ data }, 201);
@@ -70,7 +82,11 @@ enrollments.put('/:id', async (c) => {
     
     const data = await prisma.enrollment.update({
       where: { id },
-      data: body
+      data: body,
+      include: {
+        user: true,
+        course: true
+      }
     });
     
     return c.json({ data });
