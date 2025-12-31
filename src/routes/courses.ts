@@ -28,6 +28,13 @@ courses.get('/', async (c) => {
         where,
         skip: offset,
         take: limit,
+        include: {
+          modules: {
+            include: {
+              lessons: true
+            }
+          }
+        },
         orderBy
       }),
       prisma.course.count({ where })
