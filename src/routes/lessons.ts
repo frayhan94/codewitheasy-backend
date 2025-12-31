@@ -8,15 +8,27 @@ lessons.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
+    const courseId = c.req.query('courseId') || '';
+    const moduleId = c.req.query('moduleId') || '';
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where = search ? {
-      OR: [
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
         { title: { contains: search, mode: 'insensitive' as const } },
         { description: { contains: search, mode: 'insensitive' as const } }
-      ]
-    } : {};
+      ];
+    }
+    
+    if (courseId) {
+      where.module = { courseId };
+    }
+    
+    if (moduleId) {
+      where.moduleId = moduleId;
+    }
     
     // Build orderBy object
     const orderBy: any = {};
