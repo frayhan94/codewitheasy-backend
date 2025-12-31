@@ -8,6 +8,8 @@ enrollments.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
+    const sortBy = c.req.query('sortBy') || 'id';
+    const sortOrder = c.req.query('sortOrder') || 'asc';
     
     const where = search ? {
       OR: [
@@ -15,6 +17,16 @@ enrollments.get('/', async (c) => {
         { courseId: { contains: search, mode: 'insensitive' as const } }
       ]
     } : {};
+    
+    // Build orderBy object
+    const orderBy: any = {};
+    if (sortBy === 'course.title') {
+      orderBy.course = { title: sortOrder };
+    } else if (sortBy === 'user.firstName' || sortBy === 'user.lastName') {
+      orderBy.user = { [sortBy.split('.')[1]]: sortOrder };
+    } else {
+      orderBy[sortBy] = sortOrder;
+    }
     
     const [data, total] = await Promise.all([
       prisma.enrollment.findMany({
@@ -24,7 +36,8 @@ enrollments.get('/', async (c) => {
         include: {
           user: true,
           course: true
-        }
+        },
+        orderBy
       }),
       prisma.enrollment.count({ where })
     ]);

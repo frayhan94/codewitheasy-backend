@@ -8,6 +8,8 @@ courses.get('/', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     const search = c.req.query('search') || '';
+    const sortBy = c.req.query('sortBy') || 'id';
+    const sortOrder = c.req.query('sortOrder') || 'asc';
     
     const where = search ? {
       OR: [
@@ -17,11 +19,16 @@ courses.get('/', async (c) => {
       ]
     } : {};
     
+    // Build orderBy object
+    const orderBy: any = {};
+    orderBy[sortBy] = sortOrder;
+    
     const [data, total] = await Promise.all([
       prisma.course.findMany({
         where,
         skip: offset,
-        take: limit
+        take: limit,
+        orderBy
       }),
       prisma.course.count({ where })
     ]);
