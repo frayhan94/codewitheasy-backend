@@ -68,6 +68,11 @@ courses.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
+    // Convert level to uppercase enum value if present
+    if (body.level) {
+      body.level = body.level.toUpperCase();
+    }
+    
     const data = await prisma.course.create({
       data: body
     });
@@ -82,6 +87,11 @@ courses.put('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     const body = await c.req.json();
+    
+    // Convert level to uppercase enum value if present
+    if (body.level) {
+      body.level = body.level.toUpperCase();
+    }
     
     const data = await prisma.course.update({
       where: { id },
