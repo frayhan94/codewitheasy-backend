@@ -27,6 +27,13 @@ lessons.get('/', async (c) => {
         where,
         skip: offset,
         take: limit,
+        include: {
+          module: {
+            include: {
+              course: true
+            }
+          }
+        },
         orderBy
       }),
       prisma.lesson.count({ where })
