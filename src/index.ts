@@ -11,6 +11,7 @@ import subscriptions from './routes/subscriptions.js';
 import certificates from './routes/certificates.js';
 import lessonProgress from './routes/lesson-progress.js';
 import gemini from './routes/gemini.js';
+import lessonFeedback from './routes/lesson-feedback.js';
 
 const app = new Hono();
 
@@ -49,6 +50,7 @@ app.route('/api/subscriptions', subscriptions);
 app.route('/api/certificates', certificates);
 app.route('/api/lesson-progress', lessonProgress);
 app.route('/api/gemini', gemini);
+app.route('/api/lesson-feedback', lessonFeedback);
 
 app.notFound((c) => {
   return c.json({ error: 'Not Found' }, 404);
