@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { COURSE_DESCRIPTION_PROMPT, COURSE_BENEFITS_PROMPT } from '../utils/prompts.js';
 
 const gemini = new Hono();
 
@@ -21,23 +22,7 @@ gemini.post('/generate-description', async (c) => {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `Generate a compelling course description for a programming course with the following details:
-
-Title: ${title}
-Level: ${level}
-${icon ? `Icon/Theme: ${icon}` : ''}
-
-Requirements:
-- Write in a professional yet engaging tone
-- Keep it between 100-150 words
-- Highlight what students will learn
-- Mention target audience (beginner/intermediate/advanced)
-- Include key skills they'll acquire
-- Make it inspiring and action-oriented
-- Avoid overly technical jargon
-- Focus on practical outcomes
-
-Format: Return only the description text, no additional formatting or explanations.`;
+    const prompt = COURSE_DESCRIPTION_PROMPT(title, level, icon);
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -67,26 +52,7 @@ gemini.post('/generate-benefits', async (c) => {
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `Generate 5-7 key benefits for a programming course with the following details:
-
-Title: ${title}
-Level: ${level}
-${description ? `Description: ${description}` : ''}
-${icon ? `Icon/Theme: ${icon}` : ''}
-
-Requirements:
-- Benefits should be concise and impactful
-- Focus on practical skills and career outcomes
-- Use action-oriented language
-- Each benefit should be 5-15 words
-- Include both technical and soft skills
-- Make them appealing to the target audience
-- Avoid generic statements
-
-Format: Return ONLY a valid JSON array of strings, like:
-["Benefit 1", "Benefit 2", "Benefit 3", "Benefit 4", "Benefit 5"]
-
-Do not include any additional text, explanations, or formatting outside the JSON array.`;
+    const prompt = COURSE_BENEFITS_PROMPT(title, level, description, icon);
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
