@@ -105,6 +105,134 @@ feedback.get('/lesson/:lessonId/stats', async (c) => {
   }
 });
 
+// Get overall feedback statistics for dashboard
+feedback.get('/stats', async (c) => {
+  try {
+    console.log('Fetching overall feedback stats...');
+    
+    const [totalFeedback, avgRating, helpfulCount, difficultyStats, lessonsByDifficulty] = await Promise.all([
+      prisma.lessonFeedback.count(),
+      prisma.lessonFeedback.aggregate({
+        _avg: {
+          rating: true
+        }
+      }),
+      prisma.lessonFeedback.count({
+        where: { 
+          isHelpful: true 
+        }
+      }),
+      prisma.lessonFeedback.groupBy({
+        by: ['difficulty'],
+        where: { 
+          difficulty: { not: null }
+        },
+        _count: true
+      }),
+      prisma.lessonFeedback.groupBy({
+        by: ['lessonId', 'difficulty'],
+        where: { 
+          difficulty: { not: null }
+        },
+        _count: true,
+        _avg: {
+          rating: true
+        }
+      })
+    ]);
+
+    console.log('Raw data fetched:', { totalFeedback, difficultyStats, lessonsByDifficulty });
+
+    const difficultyDistribution = difficultyStats.reduce((acc: any, stat: any) => {
+      acc[stat.difficulty || 'unknown'] = stat._count;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Group lessons by difficulty with user details
+    const lessonsGroupedByDifficulty = await Promise.all(
+      Object.entries(
+        lessonsByDifficulty.reduce((acc: any, item: any) => {
+          if (!acc[item.difficulty]) {
+            acc[item.difficulty] = [];
+          }
+          acc[item.difficulty].push(item.lessonId);
+          return acc;
+        }, {})
+      ).map(async ([difficulty, lessonIds]) => {
+        console.log(`Processing difficulty: ${difficulty}, lessonIds:`, lessonIds);
+        
+        const lessons = await prisma.lesson.findMany({
+          where: {
+            id: { in: lessonIds as string[] }
+          },
+          include: {
+            module: {
+              include: {
+                course: {
+                  select: {
+                    id: true,
+                    title: true,
+                    slug: true
+                  }
+                }
+              }
+            },
+            feedback: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true
+                  }
+                }
+              },
+              where: {
+                difficulty: difficulty
+              }
+            }
+          }
+        });
+
+        console.log(`Found ${lessons.length} lessons for difficulty ${difficulty}`);
+
+        return {
+          difficulty,
+          lessons: lessons.map(lesson => ({
+            id: lesson.id,
+            title: lesson.title,
+            slug: lesson.slug,
+            course: lesson.module?.course || null,
+            feedbackCount: lesson.feedback ? lesson.feedback.length : 0,
+            averageRating: lesson.feedback && lesson.feedback.length > 0 
+              ? lesson.feedback.reduce((sum: number, f: any) => sum + f.rating, 0) / lesson.feedback.length 
+              : 0,
+            users: lesson.feedback ? lesson.feedback.map(f => f.user) : []
+          }))
+        };
+      })
+    );
+
+    return c.json({ 
+      success: true, 
+      data: {
+        totalFeedback,
+        averageRating: avgRating._avg.rating || 0,
+        helpfulCount,
+        difficultyDistribution,
+        lessonsGroupedByDifficulty
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching overall feedback stats:', error);
+    return c.json({ 
+      error: 'Failed to fetch overall feedback statistics', 
+      details: error.message 
+    }, 500);
+  }
+});
+
 // Create feedback for a lesson
 feedback.post('/lesson/:lessonId', async (c) => {
   try {
