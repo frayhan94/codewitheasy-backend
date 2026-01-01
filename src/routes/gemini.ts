@@ -11,6 +11,26 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 // CORS middleware
 gemini.use('*', cors());
 
+// List available models (temporary for debugging)
+gemini.get('/models', async (c) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const data = await response.json() as any;
+
+    return c.json({
+      success: true,
+      models: data.models || []
+    });
+  } catch (error: any) {
+    console.error('Error listing models:', error);
+    return c.json({
+      error: 'Failed to list models',
+      details: error.message
+    }, 500);
+  }
+});
+
 // Generate course description
 gemini.post('/generate-description', async (c) => {
   try {
@@ -20,7 +40,7 @@ gemini.post('/generate-description', async (c) => {
       return c.json({ error: 'Title and level are required' }, 400);
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = COURSE_DESCRIPTION_PROMPT(title, level, icon);
 
@@ -28,15 +48,15 @@ gemini.post('/generate-description', async (c) => {
     const response = await result.response;
     const description = response.text();
 
-    return c.json({ 
-      success: true, 
-      description: description.trim() 
+    return c.json({
+      success: true,
+      description: description.trim()
     });
   } catch (error: any) {
     console.error('Error generating description:', error);
-    return c.json({ 
-      error: 'Failed to generate description', 
-      details: error.message 
+    return c.json({
+      error: 'Failed to generate description',
+      details: error.message
     }, 500);
   }
 });
@@ -50,7 +70,7 @@ gemini.post('/generate-benefits', async (c) => {
       return c.json({ error: 'Title and level are required' }, 400);
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = COURSE_BENEFITS_PROMPT(title, level, description, icon);
 
@@ -72,15 +92,15 @@ gemini.post('/generate-benefits', async (c) => {
       }
     }
 
-    return c.json({ 
-      success: true, 
-      benefits: benefits 
+    return c.json({
+      success: true,
+      benefits: benefits
     });
   } catch (error: any) {
     console.error('Error generating benefits:', error);
-    return c.json({ 
-      error: 'Failed to generate benefits', 
-      details: error.message 
+    return c.json({
+      error: 'Failed to generate benefits',
+      details: error.message
     }, 500);
   }
 });
