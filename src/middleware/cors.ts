@@ -1,18 +1,20 @@
 import { Context, Next } from 'hono';
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5174').split(',');
-
+// Completely disable CORS - allow all origins
 export const corsMiddleware = async (c: Context, next: Next) => {
-  const origin = c.req.header('Origin') || '';
+  // Allow all origins
+  c.header('Access-Control-Allow-Origin', '*');
   
-  if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-    c.header('Access-Control-Allow-Origin', origin || '*');
-  }
+  // Allow all methods
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
   
-  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Allow all headers
+  c.header('Access-Control-Allow-Headers', '*');
+  
+  // Allow credentials
   c.header('Access-Control-Allow-Credentials', 'true');
   
+  // Handle preflight requests
   if (c.req.method === 'OPTIONS') {
     return c.body(null, 204);
   }
