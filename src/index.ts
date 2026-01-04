@@ -11,6 +11,7 @@ import subscriptions from './routes/subscriptions.js';
 import certificates from './routes/certificates.js';
 import lessonProgress from './routes/lesson-progress.js';
 import gemini from './routes/gemini.js';
+import openai from './routes/openAI.js';
 import lessonFeedback from './routes/lesson-feedback.js';
 
 const app = new Hono();
@@ -29,7 +30,9 @@ app.get('/', (c) => {
       enrollments: '/api/enrollments',
       subscriptions: '/api/subscriptions',
       certificates: '/api/certificates',
-      lessonProgress: '/api/lesson-progress'
+      lessonProgress: '/api/lesson-progress',
+      gemini: '/api/gemini',
+      openai: '/api/openai'
     }
   });
 });
@@ -50,6 +53,7 @@ app.route('/api/subscriptions', subscriptions);
 app.route('/api/certificates', certificates);
 app.route('/api/lesson-progress', lessonProgress);
 app.route('/api/gemini', gemini);
+app.route('/api/openai', openai);
 app.route('/api/lesson-feedback', lessonFeedback);
 
 app.notFound((c) => {
