@@ -1,3 +1,4 @@
+// src/index.ts
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { corsMiddleware } from './middleware/cors.js';
@@ -13,7 +14,7 @@ import lessonProgress from './routes/lesson-progress.js';
 import gemini from './routes/gemini.js';
 import openai from './routes/openAI.js';
 import lessonFeedback from './routes/lesson-feedback.js';
-
+import codesandbox from './routes/codesandbox.js'; 
 const app = new Hono();
 
 app.use('*', corsMiddleware);
@@ -32,7 +33,8 @@ app.get('/', (c) => {
       certificates: '/api/certificates',
       lessonProgress: '/api/lesson-progress',
       gemini: '/api/gemini',
-      openai: '/api/openai'
+      openai: '/api/openai',
+      codesandbox: '/api/codesandbox'
     }
   });
 });
@@ -42,7 +44,13 @@ app.get('/health', (c) => {
 });
 
 // Apply authentication middleware to all API routes
-app.use('/api/*', authMiddleware);
+app.use('/api/*', async (c, next) => {
+  if (c.req.path.startsWith('/api/codesandbox')) {
+    return next();
+  }
+  return authMiddleware(c, next);
+});
+
 
 app.route('/api/courses', courses);
 app.route('/api/modules', modules);
@@ -55,6 +63,7 @@ app.route('/api/lesson-progress', lessonProgress);
 app.route('/api/gemini', gemini);
 app.route('/api/openai', openai);
 app.route('/api/lesson-feedback', lessonFeedback);
+app.route('/api/codesandbox', codesandbox); //  ADD THIS
 
 app.notFound((c) => {
   return c.json({ error: 'Not Found' }, 404);
