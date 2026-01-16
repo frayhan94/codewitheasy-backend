@@ -15,10 +15,13 @@ import gemini from './routes/gemini.js';
 import openai from './routes/openAI.js';
 import lessonFeedback from './routes/lesson-feedback.js';
 import codesandbox from './routes/codesandbox.js'; 
+
 const app = new Hono();
 
+// Middlewares
 app.use('*', corsMiddleware);
 
+// Base info
 app.get('/', (c) => {
   return c.json({
     message: 'CodeWithEasy Admin API',
@@ -34,6 +37,7 @@ app.get('/', (c) => {
       lessonProgress: '/api/lesson-progress',
       gemini: '/api/gemini',
       openai: '/api/openai',
+      lessonFeedback: '/api/lesson-feedback',
       codesandbox: '/api/codesandbox'
     }
   });
@@ -43,15 +47,16 @@ app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Apply authentication middleware to all API routes
+// Authentication Guard
 app.use('/api/*', async (c, next) => {
+  // Biarkan request ke codesandbox lewat tanpa auth jika diperlukan
   if (c.req.path.startsWith('/api/codesandbox')) {
     return next();
   }
   return authMiddleware(c, next);
 });
 
-
+// Routes Registration
 app.route('/api/courses', courses);
 app.route('/api/modules', modules);
 app.route('/api/lessons', lessons);
@@ -63,8 +68,9 @@ app.route('/api/lesson-progress', lessonProgress);
 app.route('/api/gemini', gemini);
 app.route('/api/openai', openai);
 app.route('/api/lesson-feedback', lessonFeedback);
-app.route('/api/codesandbox', codesandbox); //  ADD THIS
+app.route('/api/codesandbox', codesandbox); 
 
+// Error Handling
 app.notFound((c) => {
   return c.json({ error: 'Not Found' }, 404);
 });
@@ -74,6 +80,7 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal Server Error', message: err.message }, 500);
 });
 
+// Server initialization
 if (process.env.NODE_ENV !== 'production') {
   const port = parseInt(process.env.PORT || '3000');
   
