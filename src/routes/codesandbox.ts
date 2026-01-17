@@ -75,7 +75,7 @@ codesandbox.post('/create', async (c) => {
       };
     }
     else {
-      // Logic untuk JS, HTML, CSS tetep pake template static
+      // Default to static template for JS, HTML, and CSS
       template = 'static';
       if (language === 'html') {
         files = { 'index.html': { content: code } };

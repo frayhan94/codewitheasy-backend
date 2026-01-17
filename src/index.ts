@@ -49,7 +49,7 @@ app.get('/health', (c) => {
 
 // Authentication Guard
 app.use('/api/*', async (c, next) => {
-  // Biarkan request ke codesandbox lewat tanpa auth jika diperlukan
+  // Allow codesandbox requests to bypass authentication if necessary
   if (c.req.path.startsWith('/api/codesandbox')) {
     return next();
   }
