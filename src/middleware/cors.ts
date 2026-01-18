@@ -1,23 +1,39 @@
 import { Context, Next } from 'hono';
 
-// Completely disable CORS - allow all origins
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://admin-codewitheasy.vercel.app',
+  'https://admin.codewitheasy.com',
+];
+
 export const corsMiddleware = async (c: Context, next: Next) => {
-  // Allow all origins
-  c.header('Access-Control-Allow-Origin', '*');
-  
-  // Allow all methods
-  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
-  
-  // Allow all headers
-  c.header('Access-Control-Allow-Headers', '*');
-  
-  // Allow credentials
+  const origin = c.req.header('origin');
+
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    c.header('Access-Control-Allow-Origin', origin);
+  }
+
+  c.header('Vary', 'Origin');
+
+  c.header(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+  );
+
+  c.header(
+    'Access-Control-Allow-Headers',
+    'Authorization, Content-Type'
+  );
+
   c.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
+
+  // 🔑 INI KUNCI: preflight harus STOP DI SINI
   if (c.req.method === 'OPTIONS') {
     return c.body(null, 204);
   }
-  
+
   await next();
 };
