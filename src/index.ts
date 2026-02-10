@@ -15,6 +15,7 @@ import gemini from './routes/gemini.js';
 import openai from './routes/openAI.js';
 import lessonFeedback from './routes/lesson-feedback.js';
 import codesandbox from './routes/codesandbox.js'; 
+import blogPosts from './routes/blog-posts.js';
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ app.get('/', (c) => {
       gemini: '/api/gemini',
       openai: '/api/openai',
       lessonFeedback: '/api/lesson-feedback',
+      blogPosts: '/api/blog-posts',
       codesandbox: '/api/codesandbox'
     }
   });
@@ -69,6 +71,7 @@ app.route('/api/gemini', gemini);
 app.route('/api/openai', openai);
 app.route('/api/lesson-feedback', lessonFeedback);
 app.route('/api/codesandbox', codesandbox); 
+app.route('/api/blog-posts', blogPosts);
 
 // Error Handling
 app.notFound((c) => {
