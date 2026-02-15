@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaCourseRepository } from '../adapters/db/PrismaCourseRepository';
+import { CourseUseCase } from '../core/use-cases/CourseUseCase';
 
 const courses = new Hono();
+
+// Initialize dependencies
+const courseRepository = new PrismaCourseRepository();
+const courseUseCase = new CourseUseCase(courseRepository);
 
 courses.get('/', async (c) => {
   try {
@@ -12,44 +17,16 @@ courses.get('/', async (c) => {
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where: any = {};
+    const result = await courseUseCase.getAll({
+      offset,
+      limit,
+      search,
+      level,
+      sortBy,
+      sortOrder
+    });
     
-    // Add search condition if provided
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' as const } },
-        { description: { contains: search, mode: 'insensitive' as const } },
-        { slug: { contains: search, mode: 'insensitive' as const } }
-      ];
-    }
-    
-    // Add level filter if provided
-    if (level) {
-      where.level = level.toUpperCase(); // Convert to uppercase for enum
-    }
-    
-    // Build orderBy object
-    const orderBy: any = {};
-    orderBy[sortBy] = sortOrder;
-    
-    const [data, total] = await Promise.all([
-      prisma.course.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        include: {
-          modules: {
-            include: {
-              lessons: true
-            }
-          }
-        },
-        orderBy
-      }),
-      prisma.course.count({ where })
-    ]);
-    
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -59,16 +36,13 @@ courses.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.course.findUnique({
-      where: { id }
-    });
+    const result = await courseUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'Course not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'Course not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -77,16 +51,9 @@ courses.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    // Convert level to uppercase enum value if present
-    if (body.level) {
-      body.level = body.level.toUpperCase();
-    }
+    const result = await courseUseCase.create(body);
     
-    const data = await prisma.course.create({
-      data: body
-    });
-    
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -97,17 +64,9 @@ courses.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    // Convert level to uppercase enum value if present
-    if (body.level) {
-      body.level = body.level.toUpperCase();
-    }
+    const result = await courseUseCase.update(id, body);
     
-    const data = await prisma.course.update({
-      where: { id },
-      data: body
-    });
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -117,11 +76,9 @@ courses.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.course.delete({
-      where: { id }
-    });
+    const result = await courseUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

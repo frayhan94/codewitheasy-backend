@@ -1,27 +1,22 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { COURSE_DESCRIPTION_PROMPT, COURSE_BENEFITS_PROMPT } from '../utils/prompts.js';
+import { GeminiAdapter } from '../adapters/ai/GeminiAdapter';
+import { GeminiUseCase } from '../core/use-cases/GeminiUseCase';
 
 const gemini = new Hono();
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Initialize dependencies
+const geminiAdapter = new GeminiAdapter();
+const geminiUseCase = new GeminiUseCase(geminiAdapter);
 
 // CORS middleware
 gemini.use('*', cors());
 
-// List available models (temporary for debugging)
+// List available models
 gemini.get('/models', async (c) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    const data = await response.json() as any;
-
-    return c.json({
-      success: true,
-      models: data.models || []
-    });
+    const result = await geminiUseCase.listModels();
+    return c.json(result);
   } catch (error: any) {
     console.error('Error listing models:', error);
     return c.json({
@@ -34,26 +29,14 @@ gemini.get('/models', async (c) => {
 // Generate course description
 gemini.post('/generate-description', async (c) => {
   try {
-    const { title, level, icon } = await c.req.json();
-
-    if (!title || !level) {
-      return c.json({ error: 'Title and level are required' }, 400);
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const prompt = COURSE_DESCRIPTION_PROMPT(title, level, icon);
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const description = response.text();
-
-    return c.json({
-      success: true,
-      description: description.trim()
-    });
+    const body = await c.req.json();
+    const result = await geminiUseCase.generateDescription(body);
+    return c.json(result);
   } catch (error: any) {
     console.error('Error generating description:', error);
+    if (error.message === 'Title and level are required') {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({
       error: 'Failed to generate description',
       details: error.message
@@ -64,40 +47,14 @@ gemini.post('/generate-description', async (c) => {
 // Generate course benefits
 gemini.post('/generate-benefits', async (c) => {
   try {
-    const { title, level, description, icon } = await c.req.json();
-
-    if (!title || !level) {
-      return c.json({ error: 'Title and level are required' }, 400);
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const prompt = COURSE_BENEFITS_PROMPT(title, level, description, icon);
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const benefitsText = response.text();
-
-    // Parse the JSON response
-    let benefits;
-    try {
-      benefits = JSON.parse(benefitsText);
-    } catch (parseError) {
-      // If parsing fails, try to extract JSON from the response
-      const jsonMatch = benefitsText.match(/\[.*?\]/s);
-      if (jsonMatch) {
-        benefits = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('Invalid JSON response from Gemini');
-      }
-    }
-
-    return c.json({
-      success: true,
-      benefits: benefits
-    });
+    const body = await c.req.json();
+    const result = await geminiUseCase.generateBenefits(body);
+    return c.json(result);
   } catch (error: any) {
     console.error('Error generating benefits:', error);
+    if (error.message === 'Title and level are required') {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({
       error: 'Failed to generate benefits',
       details: error.message
@@ -108,43 +65,8 @@ gemini.post('/generate-benefits', async (c) => {
 // Check API balance/usage
 gemini.get('/balance', async (c) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      return c.json({
-        success: false,
-        error: 'Gemini API key not configured'
-      }, 500);
-    }
-
-    // Make a minimal request to check usage metadata
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    
-    const result = await model.generateContent('Hello');
-    const response = result.response;
-    
-    // Get usage metadata from the response
-    const usageMetadata = response.usageMetadata;
-    
-    if (!usageMetadata) {
-      return c.json({
-        success: false,
-        error: 'Usage metadata not available'
-      }, 500);
-    }
-
-    return c.json({
-      success: true,
-      data: {
-        requestsUsed: usageMetadata.totalTokenCount || 0,
-        requestsRemaining: 'Check Google AI Studio for detailed usage',
-        requestsLimit: 'Check Google AI Studio for quota limits',
-        promptTokenCount: usageMetadata.promptTokenCount,
-        candidatesTokenCount: usageMetadata.candidatesTokenCount,
-        totalTokenCount: usageMetadata.totalTokenCount,
-        lastChecked: new Date().toISOString()
-      }
-    });
+    const result = await geminiUseCase.checkBalance();
+    return c.json(result);
   } catch (error: any) {
     console.error('Error checking Gemini balance:', error);
     
@@ -160,6 +82,20 @@ gemini.get('/balance', async (c) => {
           lastChecked: new Date().toISOString()
         }
       }, 429);
+    }
+
+    if (error.message === 'Gemini API key not configured') {
+      return c.json({
+        success: false,
+        error: error.message
+      }, 500);
+    }
+
+    if (error.message === 'Usage metadata not available') {
+      return c.json({
+        success: false,
+        error: error.message
+      }, 500);
     }
     
     return c.json({

@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaModuleRepository } from '../adapters/db/PrismaModuleRepository';
+import { ModuleUseCase } from '../core/use-cases/ModuleUseCase';
 
 const modules = new Hono();
+
+// Initialize dependencies
+const moduleRepository = new PrismaModuleRepository();
+const moduleUseCase = new ModuleUseCase(moduleRepository);
 
 modules.get('/', async (c) => {
   try {
@@ -11,48 +16,17 @@ modules.get('/', async (c) => {
     const courseId = c.req.query('courseId') || '';
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
-    const where: any = {};
     
-    // Debug logging
-    console.log('Modules API - Received params:', { search, courseId, sortBy, sortOrder });
+    const result = await moduleUseCase.getAll({
+      offset,
+      limit,
+      search,
+      courseId,
+      sortBy,
+      sortOrder
+    });
     
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' as const } },
-        { description: { contains: search, mode: 'insensitive' as const } }
-      ];
-    }
-    
-    if (courseId) {
-      where.courseId = courseId;
-    }
-    
-    console.log('Modules API - Final where clause:', where);
-    
-    // Build orderBy object
-    const orderBy: any = {};
-    if (sortBy === 'course.title') {
-      orderBy.course = { title: sortOrder };
-    } else {
-      orderBy[sortBy] = sortOrder;
-    }
-    
-    console.log('Modules API - Final orderBy:', orderBy);
-    
-    const [data, total] = await Promise.all([
-      prisma.module.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        include: {
-          course: true
-        },
-        orderBy
-      }),
-      prisma.module.count({ where })
-    ]);
-    
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -62,16 +36,13 @@ modules.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.module.findUnique({
-      where: { id }
-    });
+    const result = await moduleUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'Module not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'Module not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -80,11 +51,9 @@ modules.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const data = await prisma.module.create({
-      data: body
-    });
+    const result = await moduleUseCase.create(body);
     
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -95,12 +64,9 @@ modules.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const data = await prisma.module.update({
-      where: { id },
-      data: body
-    });
+    const result = await moduleUseCase.update(id, body);
     
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -110,11 +76,9 @@ modules.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.module.delete({
-      where: { id }
-    });
+    const result = await moduleUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

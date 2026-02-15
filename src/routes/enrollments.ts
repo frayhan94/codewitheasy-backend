@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaEnrollmentRepository } from '../adapters/db/PrismaEnrollmentRepository';
+import { EnrollmentUseCase } from '../core/use-cases/EnrollmentUseCase';
 
 const enrollments = new Hono();
+
+// Initialize dependencies
+const enrollmentRepository = new PrismaEnrollmentRepository();
+const enrollmentUseCase = new EnrollmentUseCase(enrollmentRepository);
 
 enrollments.get('/', async (c) => {
   try {
@@ -11,38 +16,15 @@ enrollments.get('/', async (c) => {
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where = search ? {
-      OR: [
-        { userId: { contains: search, mode: 'insensitive' as const } },
-        { courseId: { contains: search, mode: 'insensitive' as const } }
-      ]
-    } : {};
+    const result = await enrollmentUseCase.getAll({
+      offset,
+      limit,
+      search,
+      sortBy,
+      sortOrder
+    });
     
-    // Build orderBy object
-    const orderBy: any = {};
-    if (sortBy === 'course.title') {
-      orderBy.course = { title: sortOrder };
-    } else if (sortBy === 'user.firstName' || sortBy === 'user.lastName') {
-      orderBy.user = { [sortBy.split('.')[1]]: sortOrder };
-    } else {
-      orderBy[sortBy] = sortOrder;
-    }
-    
-    const [data, total] = await Promise.all([
-      prisma.enrollment.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        include: {
-          user: true,
-          course: true
-        },
-        orderBy
-      }),
-      prisma.enrollment.count({ where })
-    ]);
-    
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -52,20 +34,13 @@ enrollments.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.enrollment.findUnique({
-      where: { id },
-      include: {
-        user: true,
-        course: true
-      }
-    });
+    const result = await enrollmentUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'Enrollment not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'Enrollment not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -74,15 +49,9 @@ enrollments.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const data = await prisma.enrollment.create({
-      data: body,
-      include: {
-        user: true,
-        course: true
-      }
-    });
+    const result = await enrollmentUseCase.create(body);
     
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -93,16 +62,9 @@ enrollments.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const data = await prisma.enrollment.update({
-      where: { id },
-      data: body,
-      include: {
-        user: true,
-        course: true
-      }
-    });
+    const result = await enrollmentUseCase.update(id, body);
     
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -112,11 +74,9 @@ enrollments.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.enrollment.delete({
-      where: { id }
-    });
+    const result = await enrollmentUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
