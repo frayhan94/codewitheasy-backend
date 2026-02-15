@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaUserRepository } from '../adapters/db/PrismaUserRepository';
+import { UserUseCase } from '../core/use-cases/UserUseCase';
 
 const users = new Hono();
+
+// Initialize dependencies
+const userRepository = new PrismaUserRepository();
+const userUseCase = new UserUseCase(userRepository);
 
 users.get('/', async (c) => {
   try {
@@ -11,30 +16,15 @@ users.get('/', async (c) => {
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where = search ? {
-      OR: [
-        { email: { contains: search, mode: 'insensitive' as const } },
-        { firstName: { contains: search, mode: 'insensitive' as const } },
-        { lastName: { contains: search, mode: 'insensitive' as const } },
-        { clerkId: { contains: search, mode: 'insensitive' as const } }
-      ]
-    } : {};
+    const result = await userUseCase.getAll({
+      offset,
+      limit,
+      search,
+      sortBy,
+      sortOrder
+    });
     
-    // Build orderBy object
-    const orderBy: any = {};
-    orderBy[sortBy] = sortOrder;
-    
-    const [data, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        orderBy
-      }),
-      prisma.user.count({ where })
-    ]);
-    
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -44,16 +34,13 @@ users.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.user.findUnique({
-      where: { id }
-    });
+    const result = await userUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'User not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'User not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -62,11 +49,9 @@ users.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const data = await prisma.user.create({
-      data: body
-    });
+    const result = await userUseCase.create(body);
     
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -77,12 +62,9 @@ users.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const data = await prisma.user.update({
-      where: { id },
-      data: body
-    });
+    const result = await userUseCase.update(id, body);
     
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -92,11 +74,9 @@ users.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.user.delete({
-      where: { id }
-    });
+    const result = await userUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }

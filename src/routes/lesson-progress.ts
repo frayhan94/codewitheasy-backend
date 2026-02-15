@@ -1,22 +1,21 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaLessonProgressRepository } from '../adapters/db/PrismaLessonProgressRepository';
+import { LessonProgressUseCase } from '../core/use-cases/LessonProgressUseCase';
 
 const lessonProgress = new Hono();
+
+// Initialize dependencies
+const lessonProgressRepository = new PrismaLessonProgressRepository();
+const lessonProgressUseCase = new LessonProgressUseCase(lessonProgressRepository);
 
 lessonProgress.get('/', async (c) => {
   try {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '10');
     
-    const [data, total] = await Promise.all([
-      prisma.lessonProgress.findMany({
-        skip: offset,
-        take: limit
-      }),
-      prisma.lessonProgress.count()
-    ]);
+    const result = await lessonProgressUseCase.getAll(offset, limit);
     
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -26,16 +25,13 @@ lessonProgress.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.lessonProgress.findUnique({
-      where: { id }
-    });
+    const result = await lessonProgressUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'Lesson progress not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'Lesson progress not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -44,11 +40,9 @@ lessonProgress.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const data = await prisma.lessonProgress.create({
-      data: body
-    });
+    const result = await lessonProgressUseCase.create(body);
     
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -59,12 +53,9 @@ lessonProgress.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const data = await prisma.lessonProgress.update({
-      where: { id },
-      data: body
-    });
+    const result = await lessonProgressUseCase.update(id, body);
     
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -74,11 +65,9 @@ lessonProgress.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.lessonProgress.delete({
-      where: { id }
-    });
+    const result = await lessonProgressUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
