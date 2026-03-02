@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
-import { prisma } from '../lib/prisma.js';
+import { PrismaLessonRepository } from '../adapters/db/PrismaLessonRepository';
+import { LessonUseCase } from '../core/use-cases/LessonUseCase';
 
 const lessons = new Hono();
+
+// Initialize dependencies
+const lessonRepository = new PrismaLessonRepository();
+const lessonUseCase = new LessonUseCase(lessonRepository);
 
 lessons.get('/', async (c) => {
   try {
@@ -13,45 +18,17 @@ lessons.get('/', async (c) => {
     const sortBy = c.req.query('sortBy') || 'id';
     const sortOrder = c.req.query('sortOrder') || 'asc';
     
-    const where: any = {};
+    const result = await lessonUseCase.getAll({
+      offset,
+      limit,
+      search,
+      courseId,
+      moduleId,
+      sortBy,
+      sortOrder
+    });
     
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: 'insensitive' as const } },
-        { description: { contains: search, mode: 'insensitive' as const } }
-      ];
-    }
-    
-    if (courseId) {
-      where.module = { courseId };
-    }
-    
-    if (moduleId) {
-      where.moduleId = moduleId;
-    }
-    
-    // Build orderBy object
-    const orderBy: any = {};
-    orderBy[sortBy] = sortOrder;
-    
-    const [data, total] = await Promise.all([
-      prisma.lesson.findMany({
-        where,
-        skip: offset,
-        take: limit,
-        include: {
-          module: {
-            include: {
-              course: true
-            }
-          }
-        },
-        orderBy
-      }),
-      prisma.lesson.count({ where })
-    ]);
-    
-    return c.json({ data, total });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -61,16 +38,13 @@ lessons.get('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const data = await prisma.lesson.findUnique({
-      where: { id }
-    });
+    const result = await lessonUseCase.getById(id);
     
-    if (!data) {
-      return c.json({ error: 'Lesson not found' }, 404);
-    }
-    
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
+    if (error.message === 'Lesson not found') {
+      return c.json({ error: error.message }, 404);
+    }
     return c.json({ error: error.message }, 500);
   }
 });
@@ -79,11 +53,9 @@ lessons.post('/', async (c) => {
   try {
     const body = await c.req.json();
     
-    const data = await prisma.lesson.create({
-      data: body
-    });
+    const result = await lessonUseCase.create(body);
     
-    return c.json({ data }, 201);
+    return c.json(result, 201);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -94,12 +66,9 @@ lessons.put('/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const data = await prisma.lesson.update({
-      where: { id },
-      data: body
-    });
+    const result = await lessonUseCase.update(id, body);
     
-    return c.json({ data });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
@@ -109,11 +78,9 @@ lessons.delete('/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.lesson.delete({
-      where: { id }
-    });
+    const result = await lessonUseCase.delete(id);
     
-    return c.json({ success: true });
+    return c.json(result);
   } catch (error: any) {
     return c.json({ error: error.message }, 500);
   }
