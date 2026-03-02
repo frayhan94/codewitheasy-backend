@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { PrismaCourseRepository } from '../adapters/db/PrismaCourseRepository';
+import { CachedCourseRepository } from '../adapters/db/CachedCourseRepository'; // tambah ini
 import { CourseUseCase } from '../core/use-cases/CourseUseCase';
 
 const courses = new Hono();
 
 // Initialize dependencies
-const courseRepository = new PrismaCourseRepository();
+const courseRepository = new CachedCourseRepository(new PrismaCourseRepository()); // ubah ini
 const courseUseCase = new CourseUseCase(courseRepository);
 
 courses.get('/', async (c) => {
